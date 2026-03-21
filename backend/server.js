@@ -16,8 +16,10 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// Connect to MongoDB
-mongoose.connect('mongodb://127.0.0.1:27017/aurumDB')
+// 🚀 UPGRADED: Cloud Database Connection
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/aurumDB';
+
+mongoose.connect(MONGODB_URI)
   .then(() => {
       console.log('✅ MongoDB Connected to AurumDB');
       Log.countDocuments().then(count => {
@@ -146,12 +148,10 @@ app.post('/api/user-orders-fetch', async (req, res) => {
     }
 });
 
-// NEW: Endpoint for User to send additional messages/notes to the Admin
 app.put('/api/orders/:id/user-note', async (req, res) => {
     try {
         const { note } = req.body;
         const order = await Order.findById(req.params.id);
-        // Append the new note to the existing notes so conversation history isn't lost
         const updatedNote = order.userNote ? order.userNote + " | [Reply]: " + note : note;
         
         const updatedOrder = await Order.findByIdAndUpdate(
@@ -247,6 +247,8 @@ app.delete('/api/logs/:id', async (req, res) => {
     }
 });
 
-app.listen(5000, () => {
-    console.log('🚀 Aurum Backend running on http://localhost:5000');
+// 🚀 UPGRADED: Dynamic Port binding for Render deployment
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`🚀 Aurum Backend running on port ${PORT}`);
 });
