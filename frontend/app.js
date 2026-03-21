@@ -6,16 +6,19 @@ app.controller('MainController', function($scope, $http, $timeout) {
     document.documentElement.setAttribute('data-theme', 'dark');
     
     $scope.toggleTheme = function() {
-        $scope.isDarkMode = !$scope.isDarkMode;
+        if ($scope.isDarkMode) { $scope.isDarkMode = false; } 
+        else { $scope.isDarkMode = true; }
         document.documentElement.setAttribute('data-theme', $scope.isDarkMode ? 'dark' : 'light');
         if($scope.currentView === 'dashboard') {
             $scope.setTimeframe($scope.activeTimeframe);
         }
     };
 
-    $scope.currentView = 'home';
+    $scope.currentView = localStorage.getItem('aurumView') || 'home';
+    
     $scope.setView = function(view) { 
         $scope.currentView = view; 
+        localStorage.setItem('aurumView', view);
         if(view === 'dashboard') {
             $timeout(() => $scope.setTimeframe($scope.activeTimeframe), 100);
         }
@@ -25,74 +28,212 @@ app.controller('MainController', function($scope, $http, $timeout) {
     };
 
     // ==========================================
-    // USER AUTHENTICATION & TRADING
+    // USER AUTHENTICATION & TRADING API LOGIC
     // ==========================================
     $scope.authMode = 'login'; 
     $scope.currentUser = null;
     $scope.regData = {}; 
     $scope.loginData = {}; 
-    $scope.tradeQty = 1;
+    $scope.userOrders = []; 
+    
+    $scope.tradeConfig = { qty: 1, purity: "24", shape: "Coin", userNote: "" };
+    $scope.availableWeights = {
+        "Coin": [1, 2, 5, 10],
+        "Bar": [10, 20, 50, 100, 250, 500, 1000],
+        "Ingot": [1000, 5000, 12500] 
+    };
+    $scope.tradeConfig.qty = $scope.availableWeights["Coin"][0]; 
+    
+    $scope.currentPuritySpotRate = 0;
+    $scope.tradeBaseVal = 0;
+    $scope.tradePremium = 0;
+    $scope.premiumPercentDisplay = 5; 
+    $scope.tradeTax = 0;
+    $scope.tradeTotalCost = 0;
+
+    $scope.handleShapeChange = function() {
+        if ($scope.tradeConfig.shape !== 'Jewelry') {
+            $scope.tradeConfig.qty = $scope.availableWeights[$scope.tradeConfig.shape][0];
+        } else {
+            $scope.tradeConfig.qty = 10; 
+        }
+        $scope.calcTrade();
+    };
+
+    $scope.fetchUserOrders = function() {
+        if(!$scope.currentUser) return;
+        // UPGRADED TO RELATIVE PATH
+        $http.post('/api/user-orders-fetch', { email: $scope.currentUser.email }).then(function(res) {
+            $scope.userOrders = res.data;
+        }).catch(function(err) {
+            console.error("Vault Fetch Error:", err);
+        });
+    };
+
+    $scope.replyToAdmin = function(order) {
+        let userMessage = prompt("Send a follow-up note to the Admin regarding this order:");
+        if (!userMessage) return; 
+        
+        $http.put('/api/orders/' + order._id + '/user-note', { note: userMessage }).then(function(res) {
+            alert("Message successfully sent to the Vault Admin.");
+            $scope.fetchUserOrders(); 
+        }).catch(function(err) {
+            alert("Failed to send message.");
+        });
+    };
 
     $scope.register = function() {
-        $http.post('http://localhost:5000/api/register', $scope.regData).then(function(res) {
+        if(!$scope.regData.name || !$scope.regData.email || !$scope.regData.password || !$scope.regData.number) {
+            return alert("Please fill out all required fields to register.");
+        }
+        if (/[0-9]/.test($scope.regData.name)) {
+            return alert("Invalid Entry: Full Name must contain only letters and cannot include numbers.");
+        }
+        let emailPrefix = $scope.regData.email.split('@')[0];
+        if (emailPrefix && !/[a-zA-Z]/.test(emailPrefix)) {
+            return alert("Invalid Entry: Email address must contain letters (words) and cannot be only numbers.");
+        }
+        if (!/^[0-9]{10}$/.test($scope.regData.number)) {
+            return alert("Invalid Entry: Please enter a valid 10-digit Indian mobile number.");
+        }
+
+        // UPGRADED TO RELATIVE PATH
+        $http.post('/api/register', $scope.regData).then(function(res) {
             alert(res.data.message);
-            $scope.authMode = 'login';
-        }).catch(err => alert(err.data.error || "Registration failed"));
+            $scope.authMode = 'login'; 
+            $scope.regData = {}; 
+        }).catch(function(err) {
+            alert(err.data.error || "Registration failed due to server error.");
+        });
     };
 
     $scope.login = function() {
-        $http.post('http://localhost:5000/api/login', $scope.loginData).then(function(res) {
-            $scope.currentUser = res.data.user;
-        }).catch(err => alert(err.data.error || "Login failed"));
+        if(!$scope.loginData.email || !$scope.loginData.password) {
+            return alert("Please enter both email and password.");
+        }
+
+        // UPGRADED TO RELATIVE PATH
+        $http.post('/api/login', $scope.loginData).then(function(res) {
+            $scope.currentUser = res.data.user; 
+            $scope.loginData.password = ''; 
+            $scope.calcTrade();
+            $scope.fetchUserOrders(); 
+        }).catch(function(err) {
+            alert("Login Failed: " + err.data.error);
+        });
     };
 
     $scope.logout = function() { 
         $scope.currentUser = null; 
         $scope.loginData = {};
+        $scope.userOrders = [];
+        $scope.tradeConfig.qty = $scope.availableWeights["Coin"][0];
+        $scope.tradeConfig.userNote = ""; 
+    };
+
+    $scope.calcTrade = function() {
+        if(!$scope.basePricePerGramINR) { return; }
+
+        let purityMulti = 1; 
+        if($scope.tradeConfig.purity === "22") { purityMulti = 0.916; }
+        if($scope.tradeConfig.purity === "18") { purityMulti = 0.750; }
+        
+        let rawGoldPricePerGram24K = ($scope.basePricePerGramINR / 1.18);
+        $scope.currentPuritySpotRate = rawGoldPricePerGram24K * purityMulti;
+        
+        $scope.tradeBaseVal = $scope.tradeConfig.qty * $scope.currentPuritySpotRate;
+
+        let premiumPercentDecimal = 0;
+        if($scope.tradeConfig.shape === "Coin") { premiumPercentDecimal = 0.05; $scope.premiumPercentDisplay = 5; }
+        if($scope.tradeConfig.shape === "Bar") { premiumPercentDecimal = 0.02; $scope.premiumPercentDisplay = 2; }
+        if($scope.tradeConfig.shape === "Ingot") { premiumPercentDecimal = 0.01; $scope.premiumPercentDisplay = 1; }
+        if($scope.tradeConfig.shape === "Jewelry") { premiumPercentDecimal = 0.15; $scope.premiumPercentDisplay = 15; }
+
+        $scope.tradePremium = $scope.tradeBaseVal * premiumPercentDecimal;
+        $scope.tradeTax = ($scope.tradeBaseVal + $scope.tradePremium) * 0.18;
+        $scope.tradeTotalCost = $scope.tradeBaseVal + $scope.tradePremium + $scope.tradeTax;
     };
 
     $scope.buyGold = function() {
-        if(!confirm(`Do you want to finalize the purchase of ${$scope.tradeQty}g of Physical Gold?`)) return;
+        if($scope.tradeConfig.qty < 1) return alert("Minimum purchase is 1 Gram.");
+        if(!confirm(`Do you want to finalize the purchase of ${$scope.tradeConfig.qty}g of ${$scope.tradeConfig.purity}K ${$scope.tradeConfig.shape}?`)) return;
         
-        const cost = $scope.tradeQty * $scope.basePricePerGramINR;
         const payload = { 
             userName: $scope.currentUser.name, 
             email: $scope.currentUser.email, 
-            quantity: $scope.tradeQty, 
-            totalCostINR: cost 
+            quantity: $scope.tradeConfig.qty,
+            purity: $scope.tradeConfig.purity,
+            shape: $scope.tradeConfig.shape,
+            totalCostINR: $scope.tradeTotalCost,
+            userNote: $scope.tradeConfig.userNote 
         };
         
-        $http.post('http://localhost:5000/api/buy', payload).then(function(res) {
-            alert("Transaction Successful! Your physical gold is reserved.");
-            $scope.tradeQty = 1;
-        }).catch(err => alert("Transaction failed."));
+        // UPGRADED TO RELATIVE PATH
+        $http.post('/api/buy', payload).then(function(res) {
+            alert("Transaction Successful! Your physical gold is securely allocated. Check your Vault History below.");
+            $scope.tradeConfig.qty = $scope.availableWeights[$scope.tradeConfig.shape][0]; 
+            $scope.tradeConfig.userNote = ""; 
+            $scope.calcTrade();
+            $scope.fetchUserOrders(); 
+        }).catch(function(err) {
+            alert("Financial transaction failed. Please contact support.");
+        });
     };
 
     // ==========================================
-    // ADMIN LOGIN & DB OPERATIONS (CRUD)
+    // DATABASE ADMIN (CRUD & ORDER CONTROLS)
     // ==========================================
     $scope.adminUnlocked = false;
-    $scope.adminPwd = '';
+    $scope.adminTab = 'ledger'; 
+    $scope.admin = { pwd: '' }; 
     $scope.logs = [];
     $scope.orders = [];
+    $scope.registeredUsers = []; 
+    $scope.selectedOrder = {}; 
 
     $scope.unlockAdmin = function() {
-        $http.post('http://localhost:5000/api/admin-login', { password: $scope.adminPwd }).then(function(res) {
+        if(!$scope.admin.pwd) { return alert("Enter password."); }
+        
+        // UPGRADED TO RELATIVE PATH
+        $http.post('/api/admin-login', { password: $scope.admin.pwd }).then(function(res) {
             $scope.adminUnlocked = true;
+            $scope.admin.pwd = ''; 
             $scope.fetchAdminData();
-        }).catch(err => alert("Incorrect Admin Password"));
+        }).catch(function(err) {
+            alert("ACCESS DENIED: Incorrect Admin Password");
+        });
     };
 
     $scope.fetchAdminData = function() {
-        $http.get('http://localhost:5000/api/logs').then(res => $scope.logs = res.data);
-        $http.get('http://localhost:5000/api/orders').then(res => $scope.orders = res.data);
+        $http.get('/api/logs').then(function(res) { $scope.logs = res.data; });
+        $http.get('/api/orders').then(function(res) { $scope.orders = res.data; });
+        $http.get('/api/users').then(function(res) { $scope.registeredUsers = res.data; });
+    };
+
+    $scope.viewOrderDetails = function(order) {
+        $scope.selectedOrder = order;
+    };
+
+    $scope.updateOrderStatus = function(order, newStatus) {
+        let adminMessage = prompt(`Enter an optional note to display in the investor's vault regarding status: ${newStatus}\n(Leave blank for no note)`);
+        if (adminMessage === null) return; 
+        const payload = { status: newStatus, note: adminMessage };
+        $http.put('/api/orders/' + order._id + '/status', payload).then(function(res) {
+            alert(`Order status successfully updated to "${newStatus}". The investor's vault has been updated.`);
+            $scope.fetchAdminData(); 
+        }).catch(function(err) {
+            console.error("Status Update Error:", err);
+            alert("Failed to update status.");
+        });
     };
 
     $scope.newLog = { action: '', details: '' };
 
     $scope.createLog = function() {
-        if(!$scope.newLog.action || !$scope.newLog.details) return alert('Please enter both Action and Details.');
-        $http.post('http://localhost:5000/api/log', $scope.newLog).then(function(res) {
+        if(!$scope.newLog.action || !$scope.newLog.details) {
+            return alert('Please enter Action and Details.');
+        }
+        $http.post('/api/log', $scope.newLog).then(function(res) {
             $scope.newLog = { action: '', details: '' }; 
             $scope.fetchAdminData(); 
         });
@@ -106,7 +247,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
 
     $scope.saveUpdate = function(log) {
         const payload = { action: log.editAction, details: log.editDetails };
-        $http.put('http://localhost:5000/api/logs/' + log._id, payload).then(function(res) {
+        $http.put('/api/logs/' + log._id, payload).then(function(res) {
             log.isEditing = false;
             log.action = log.editAction; 
             log.details = log.editDetails;
@@ -114,17 +255,16 @@ app.controller('MainController', function($scope, $http, $timeout) {
     };
 
     $scope.deleteLog = function(id) {
-        if(confirm("Are you sure you want to permanently delete this record?")) {
-            $http.delete('http://localhost:5000/api/logs/' + id).then(function(res) {
+        if(confirm("CRITICAL WARNING: Are you sure you want to permanently delete this record?")) {
+            $http.delete('/api/logs/' + id).then(function(res) {
                 $scope.fetchAdminData(); 
             });
         }
     };
 
     // ==========================================
-    // RATES, CONVERSION & API LOGIC
+    // LIVE DATA STREAMING & CONVERSION MATH
     // ==========================================
-    $scope.marketStatus = "Fetching Live APIs...";
     $scope.apiConnected = false;
     $scope.basePricePerGramINR = 6200; 
     
@@ -156,13 +296,10 @@ app.controller('MainController', function($scope, $http, $timeout) {
 
     $scope.calcGold = function() {
         let grams = 0;
-        if ($scope.userUnit === 'oz') {
-            grams = $scope.userQuantity * 31.1035;
-        } else if ($scope.userUnit === 'tola') {
-            grams = $scope.userQuantity * 10;
-        } else {
-            grams = $scope.userQuantity;
-        }
+        if ($scope.userUnit === 'oz') { grams = $scope.userQuantity * 31.1035; } 
+        else if ($scope.userUnit === 'tola') { grams = $scope.userQuantity * 10; } 
+        else { grams = $scope.userQuantity; }
+        
         $scope.goldValueINR = grams * $scope.basePricePerGramINR;
         $scope.goldValueUSD = $scope.goldValueINR / $scope.rates['INR'];
     };
@@ -171,29 +308,33 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $scope.currResult = ($scope.currAmount / $scope.rates[$scope.currFrom]) * $scope.rates[$scope.currTo];
     };
 
-    $http.get('http://localhost:5000/api/live-market').then(function(res) {
+    $http.get('/api/live-market').then(function(res) {
         $scope.apiConnected = true;
-        $scope.marketStatus = "Live APIs Connected";
-        
         $scope.rates = res.data.rates;
         $scope.basePricePerGramINR = res.data.pricePerGramINR;
         
         $scope.calcGold(); 
         $scope.calcCurrency();
+        
+        if($scope.currentUser) {
+            $scope.calcTrade();
+        }
+        
         $scope.adjustChartsToLivePrice(res.data.pricePerGramINR);
 
     }).catch(function(e) {
         $scope.apiConnected = false;
-        $scope.marketStatus = "API Offline - Using Estimates";
         $scope.calcGold(); 
         $scope.calcCurrency();
     });
 
     // ==========================================
-    // CHART DATA ENGINE
+    // CANVAS RENDERING & CHART.JS INITIALIZATION
     // ==========================================
     let arimaChartInstance = null; 
     let lstmChartInstance = null;
+    $scope.adminPreviewChartInstance = null; 
+
     $scope.masterData = { rawDates: [], dates: [], actual: [], arima: [], lstm: [] };
     
     let startDate = new Date(2012, 0, 1);
@@ -205,11 +346,13 @@ app.controller('MainController', function($scope, $http, $timeout) {
     for(let i = 0; i < days; i++) {
         let d = new Date(startDate);
         d.setDate(d.getDate() + i);
+        
         $scope.masterData.rawDates.push(d);
         $scope.masterData.dates.push(d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }));
         
         let volatility = (Math.random() - 0.49) * 40; 
         simPrice += trend + volatility;
+        
         $scope.masterData.actual.push(simPrice);
         $scope.masterData.arima.push(simPrice * 0.96 + (Math.random() * 200));
         $scope.masterData.lstm.push(simPrice * 0.995 + ((Math.random() - 0.5) * 50));
@@ -232,9 +375,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
 
     $scope.activeTimeframe = '1Y';
     $scope.years = []; 
-    for(let y = 2012; y <= 2026; y++) {
-        $scope.years.push(y);
-    }
+    for(let y = 2012; y <= 2026; y++) { $scope.years.push(y); }
     
     $scope.months = [
         {val:0, name:'January'}, {val:1, name:'February'}, {val:2, name:'March'}, 
@@ -242,7 +383,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
         {val:6, name:'July'}, {val:7, name:'August'}, {val:8, name:'September'}, 
         {val:9, name:'October'}, {val:10, name:'November'}, {val:11, name:'December'}
     ];
-    
     $scope.selYear = 2024; 
     $scope.selMonth = 0;
 
@@ -250,11 +390,11 @@ app.controller('MainController', function($scope, $http, $timeout) {
         $scope.activeTimeframe = timeframe;
         let slice = 0;
         
-        if(timeframe === '1M') slice = 30; 
-        else if(timeframe === '6M') slice = 180;
-        else if(timeframe === '1Y') slice = 365; 
-        else if(timeframe === '5Y') slice = 1825;
-        else if(timeframe === 'MAX') slice = $scope.masterData.dates.length;
+        if(timeframe === '1M') { slice = 30; } 
+        else if(timeframe === '6M') { slice = 180; } 
+        else if(timeframe === '1Y') { slice = 365; } 
+        else if(timeframe === '5Y') { slice = 1825; } 
+        else if(timeframe === 'MAX') { slice = $scope.masterData.dates.length; }
 
         $scope.updateCharts(
             $scope.masterData.dates.slice(-slice), 
@@ -262,11 +402,15 @@ app.controller('MainController', function($scope, $http, $timeout) {
             $scope.masterData.arima.slice(-slice), 
             $scope.masterData.lstm.slice(-slice)
         );
+
+        let identifier = $scope.currentUser ? $scope.currentUser.name : "Guest";
+        $http.post('/api/log', { action: 'Chart Viewed', details: `User: ${identifier} | Timeframe: ${timeframe}` });
     };
 
     $scope.filterSpecificMonth = function() {
         $scope.activeTimeframe = 'CUSTOM';
         let fDates=[], fActual=[], fArima=[], fLstm=[];
+        let monthName = $scope.months.find(m => m.val === $scope.selMonth).name;
         
         for(let i = 0; i < $scope.masterData.rawDates.length; i++) {
             let d = $scope.masterData.rawDates[i];
@@ -278,11 +422,44 @@ app.controller('MainController', function($scope, $http, $timeout) {
             }
         }
         
-        if(fDates.length === 0) {
-            alert("No trading data available for this specific month.");
-            return;
-        }
+        if(fDates.length === 0) return alert("Database Notification: No trading data available for this specific month.");
         $scope.updateCharts(fDates, fActual, fArima, fLstm);
+
+        let identifier = $scope.currentUser ? $scope.currentUser.name : "Guest";
+        $http.post('/api/log', { action: 'Chart Viewed', details: `User: ${identifier} | Custom: ${monthName} ${$scope.selYear}` });
+    };
+
+    $scope.previewLogChart = function(log) {
+        let slice = 365; 
+        if (log.details.includes('1M')) slice = 30;
+        else if (log.details.includes('6M')) slice = 180;
+        else if (log.details.includes('1Y')) slice = 365;
+        else if (log.details.includes('5Y')) slice = 1825;
+        else if (log.details.includes('MAX')) slice = $scope.masterData.dates.length;
+        
+        let pDates = $scope.masterData.dates.slice(-slice);
+        let pActual = $scope.masterData.actual.slice(-slice);
+        let pArima = $scope.masterData.arima.slice(-slice);
+
+        var myModal = new bootstrap.Modal(document.getElementById('adminChartModal'));
+        myModal.show();
+        
+        $timeout(function() {
+            const ctx = document.getElementById('adminPreviewChart').getContext('2d');
+            if ($scope.adminPreviewChartInstance) $scope.adminPreviewChartInstance.destroy();
+            
+            $scope.adminPreviewChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: pDates,
+                    datasets: [
+                        { label: 'Actual Price', data: pActual, borderColor: '#ffffff', borderWidth: 2, tension: 0 },
+                        { label: 'ARIMA Model', data: pArima, borderColor: '#DAA520', borderWidth: 2, borderDash: [5,5], tension: 0 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, elements: { point: { radius: 0 } }, plugins: { legend: { labels: { color: '#ffffff' } } }, scales: { x: { ticks: { color: '#ffffff' } }, y: { ticks: { color: '#ffffff' } } } }
+            });
+        }, 300); 
     };
 
     $scope.updateCharts = function(dates, actual, arima, lstm) {
@@ -293,19 +470,11 @@ app.controller('MainController', function($scope, $http, $timeout) {
         const actualLineColor = $scope.isDarkMode ? '#ffffff' : '#000000';
 
         const opts = { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            elements: { point: { radius: 0 } }, 
+            responsive: true, maintainAspectRatio: false, elements: { point: { radius: 0 } }, 
             interaction: { mode: 'index', intersect: false }, 
             scales: { 
-                x: { 
-                    grid: { color: gridColor }, 
-                    ticks: { color: tickColor, maxTicksLimit: 6 } 
-                }, 
-                y: { 
-                    grid: { color: gridColor }, 
-                    ticks: { color: tickColor } 
-                } 
+                x: { grid: { color: gridColor }, ticks: { color: tickColor, maxTicksLimit: 6 } }, 
+                y: { grid: { color: gridColor }, ticks: { color: tickColor } } 
             } 
         };
 
@@ -313,26 +482,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         if (arimaChartInstance) arimaChartInstance.destroy();
         arimaChartInstance = new Chart(ctxArima, { 
             type: 'line', 
-            data: { 
-                labels: dates, 
-                datasets: [ 
-                    { 
-                        label: 'Actual Price', 
-                        data: actual, 
-                        borderColor: actualLineColor, 
-                        borderWidth: 2, 
-                        tension: 0.1 
-                    }, 
-                    { 
-                        label: 'ARIMA Model', 
-                        data: arima, 
-                        borderColor: '#DAA520', 
-                        borderWidth: 2, 
-                        borderDash: [5, 5], 
-                        tension: 0.1 
-                    } 
-                ]
-            }, 
+            data: { labels: dates, datasets: [ { label: 'Actual Ground Truth Price', data: actual, borderColor: actualLineColor, borderWidth: 2, tension: 0 }, { label: 'ARIMA Statistical Model', data: arima, borderColor: '#DAA520', borderWidth: 2, borderDash: [5, 5], tension: 0 } ] }, 
             options: opts 
         });
 
@@ -340,26 +490,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         if (lstmChartInstance) lstmChartInstance.destroy();
         lstmChartInstance = new Chart(ctxLstm, { 
             type: 'line', 
-            data: { 
-                labels: dates, 
-                datasets: [ 
-                    { 
-                        label: 'Actual Price', 
-                        data: actual, 
-                        borderColor: actualLineColor, 
-                        borderWidth: 2, 
-                        tension: 0.1 
-                    }, 
-                    { 
-                        label: 'LSTM Network', 
-                        data: lstm, 
-                        borderColor: '#198754', 
-                        borderWidth: 2, 
-                        borderDash: [5, 5], 
-                        tension: 0.1 
-                    } 
-                ]
-            }, 
+            data: { labels: dates, datasets: [ { label: 'Actual Ground Truth Price', data: actual, borderColor: actualLineColor, borderWidth: 2, tension: 0 }, { label: 'LSTM Deep Network', data: lstm, borderColor: '#198754', borderWidth: 2, borderDash: [5, 5], tension: 0 } ] }, 
             options: opts 
         });
     };
