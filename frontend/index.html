@@ -944,7 +944,7 @@
 
             $scope.fetchUserOrders = function() {
                 if(!$scope.currentUser) return;
-                $http.post('http://localhost:5000/api/user-orders-fetch', { email: $scope.currentUser.email }).then(function(res) {
+                $http.post('/api/user-orders-fetch', { email: $scope.currentUser.email }).then(function(res) {
                     $scope.userOrders = res.data;
                 }).catch(function(err) {
                     console.error("Vault Fetch Error:", err);
@@ -956,7 +956,7 @@
                 let userMessage = prompt("Send a follow-up note to the Admin regarding this order:");
                 if (!userMessage) return; 
                 
-                $http.put('http://localhost:5000/api/orders/' + order._id + '/user-note', { note: userMessage }).then(function(res) {
+                $http.put('/api/orders/' + order._id + '/user-note', { note: userMessage }).then(function(res) {
                     alert("Message successfully sent to the Vault Admin.");
                     $scope.fetchUserOrders(); // Refresh table to show appended note
                 }).catch(function(err) {
@@ -979,7 +979,7 @@
                     return alert("Invalid Entry: Please enter a valid 10-digit Indian mobile number.");
                 }
 
-                $http.post('http://localhost:5000/api/register', $scope.regData).then(function(res) {
+                $http.post('/api/register', $scope.regData).then(function(res) {
                     alert(res.data.message);
                     $scope.authMode = 'login'; 
                     $scope.regData = {}; 
@@ -993,7 +993,7 @@
                     return alert("Please enter both email and password.");
                 }
 
-                $http.post('http://localhost:5000/api/login', $scope.loginData).then(function(res) {
+                $http.post('/api/login', $scope.loginData).then(function(res) {
                     $scope.currentUser = res.data.user; 
                     $scope.loginData.password = ''; 
                     $scope.calcTrade();
@@ -1053,7 +1053,7 @@
                     userNote: $scope.tradeConfig.userNote 
                 };
                 
-                $http.post('http://localhost:5000/api/buy', payload).then(function(res) {
+                $http.post('/api/buy', payload).then(function(res) {
                     alert("Transaction Successful! Your physical gold is securely allocated. Check your Vault History below.");
                     $scope.tradeConfig.qty = $scope.availableWeights[$scope.tradeConfig.shape][0]; 
                     $scope.tradeConfig.userNote = ""; 
@@ -1080,7 +1080,7 @@
             $scope.unlockAdmin = function() {
                 if(!$scope.admin.pwd) { return alert("Enter password."); }
                 
-                $http.post('http://localhost:5000/api/admin-login', { password: $scope.admin.pwd }).then(function(res) {
+                $http.post('/api/admin-login', { password: $scope.admin.pwd }).then(function(res) {
                     $scope.adminUnlocked = true;
                     $scope.admin.pwd = ''; 
                     $scope.fetchAdminData();
@@ -1090,9 +1090,9 @@
             };
 
             $scope.fetchAdminData = function() {
-                $http.get('http://localhost:5000/api/logs').then(function(res) { $scope.logs = res.data; });
-                $http.get('http://localhost:5000/api/orders').then(function(res) { $scope.orders = res.data; });
-                $http.get('http://localhost:5000/api/users').then(function(res) { $scope.registeredUsers = res.data; });
+                $http.get('/api/logs').then(function(res) { $scope.logs = res.data; });
+                $http.get('/api/orders').then(function(res) { $scope.orders = res.data; });
+                $http.get('/api/users').then(function(res) { $scope.registeredUsers = res.data; });
             };
 
             $scope.viewOrderDetails = function(order) {
@@ -1106,7 +1106,7 @@
                 
                 const payload = { status: newStatus, note: adminMessage };
                 
-                $http.put('http://localhost:5000/api/orders/' + order._id + '/status', payload).then(function(res) {
+                $http.put('/api/orders/' + order._id + '/status', payload).then(function(res) {
                     alert(`Order status successfully updated to "${newStatus}". The investor's vault has been updated.`);
                     $scope.fetchAdminData(); 
                 }).catch(function(err) {
@@ -1121,7 +1121,7 @@
                 if(!$scope.newLog.action || !$scope.newLog.details) {
                     return alert('Please enter Action and Details.');
                 }
-                $http.post('http://localhost:5000/api/log', $scope.newLog).then(function(res) {
+                $http.post('/api/log', $scope.newLog).then(function(res) {
                     $scope.newLog = { action: '', details: '' }; 
                     $scope.fetchAdminData(); 
                 });
@@ -1135,7 +1135,7 @@
 
             $scope.saveUpdate = function(log) {
                 const payload = { action: log.editAction, details: log.editDetails };
-                $http.put('http://localhost:5000/api/logs/' + log._id, payload).then(function(res) {
+                $http.put('/api/logs/' + log._id, payload).then(function(res) {
                     log.isEditing = false;
                     log.action = log.editAction; 
                     log.details = log.editDetails;
@@ -1144,7 +1144,7 @@
 
             $scope.deleteLog = function(id) {
                 if(confirm("CRITICAL WARNING: Are you sure you want to permanently delete this record?")) {
-                    $http.delete('http://localhost:5000/api/logs/' + id).then(function(res) {
+                    $http.delete('/api/logs/' + id).then(function(res) {
                         $scope.fetchAdminData(); 
                     });
                 }
@@ -1156,7 +1156,7 @@
              * ==========================================
              */
             $scope.apiConnected = false;
-            $scope.basePricePerGramINR = 6200; 
+            $scope.basePricePerGramINR = 14600; // UPDATED 2026 FALLBACK PRICE
             
             $scope.rates = { 'USD': 1, 'INR': 83.50, 'EUR': 0.92, 'GBP': 0.78, 'JPY': 150.00, 'AUD': 1.53, 'CAD': 1.35 };
             
@@ -1198,7 +1198,7 @@
                 $scope.currResult = ($scope.currAmount / $scope.rates[$scope.currFrom]) * $scope.rates[$scope.currTo];
             };
 
-            $http.get('http://localhost:5000/api/live-market').then(function(res) {
+            $http.get('/api/live-market').then(function(res) {
                 $scope.apiConnected = true;
                 $scope.rates = res.data.rates;
                 $scope.basePricePerGramINR = res.data.pricePerGramINR;
@@ -1279,8 +1279,8 @@
                 {val:9, name:'October'}, {val:10, name:'November'}, {val:11, name:'December'}
             ];
             
-            $scope.selYear = 2024; 
-            $scope.selMonth = 0;
+            $scope.selYear = 2026; 
+            $scope.selMonth = 2;
 
             // TRACKING UPDATE: Pushes user's chart view directly to DB
             $scope.setTimeframe = function(timeframe) {
@@ -1302,7 +1302,7 @@
 
                 // Silently log action to Admin console
                 let identifier = $scope.currentUser ? $scope.currentUser.name : "Guest";
-                $http.post('http://localhost:5000/api/log', { action: 'Chart Viewed', details: `User: ${identifier} | Timeframe: ${timeframe}` });
+                $http.post('/api/log', { action: 'Chart Viewed', details: `User: ${identifier} | Timeframe: ${timeframe}` });
             };
 
             $scope.filterSpecificMonth = function() {
@@ -1328,7 +1328,7 @@
 
                 // Silently log custom lookup
                 let identifier = $scope.currentUser ? $scope.currentUser.name : "Guest";
-                $http.post('http://localhost:5000/api/log', { action: 'Chart Viewed', details: `User: ${identifier} | Custom: ${monthName} ${$scope.selYear}` });
+                $http.post('/api/log', { action: 'Chart Viewed', details: `User: ${identifier} | Custom: ${monthName} ${$scope.selYear}` });
             };
 
             // NEW: Reproduces the user's graph inside the Admin Modal
