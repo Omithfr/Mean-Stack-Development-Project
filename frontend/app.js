@@ -62,7 +62,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
 
     $scope.fetchUserOrders = function() {
         if(!$scope.currentUser) return;
-        // UPGRADED TO RELATIVE PATH
         $http.post('/api/user-orders-fetch', { email: $scope.currentUser.email }).then(function(res) {
             $scope.userOrders = res.data;
         }).catch(function(err) {
@@ -84,42 +83,40 @@ app.controller('MainController', function($scope, $http, $timeout) {
 
     $scope.register = function() {
         if(!$scope.regData.name || !$scope.regData.email || !$scope.regData.password || !$scope.regData.number) {
-            return alert("Please fill out all required fields to register.");
+            return alert("Error: Please fill out all required fields to register.");
         }
         if (/[0-9]/.test($scope.regData.name)) {
-            return alert("Invalid Entry: Full Name must contain only letters and cannot include numbers.");
+            return alert("Error: Full Name must contain only letters and cannot include numbers.");
         }
         let emailPrefix = $scope.regData.email.split('@')[0];
         if (emailPrefix && !/[a-zA-Z]/.test(emailPrefix)) {
-            return alert("Invalid Entry: Email address must contain letters (words) and cannot be only numbers.");
+            return alert("Error: Email address must contain letters.");
         }
         if (!/^[0-9]{10}$/.test($scope.regData.number)) {
-            return alert("Invalid Entry: Please enter a valid 10-digit Indian mobile number.");
+            return alert("Error: Please enter a valid 10-digit Indian mobile number.");
         }
 
-        // UPGRADED TO RELATIVE PATH
         $http.post('/api/register', $scope.regData).then(function(res) {
-            alert(res.data.message);
+            alert("Registration successful! You can now log into your vault.");
             $scope.authMode = 'login'; 
             $scope.regData = {}; 
         }).catch(function(err) {
-            alert(err.data.error || "Registration failed due to server error.");
+            alert("Registration Failed: " + (err.data.error || "Email is likely already registered."));
         });
     };
 
     $scope.login = function() {
         if(!$scope.loginData.email || !$scope.loginData.password) {
-            return alert("Please enter both email and password.");
+            return alert("Error: Please enter both email and password.");
         }
 
-        // UPGRADED TO RELATIVE PATH
         $http.post('/api/login', $scope.loginData).then(function(res) {
             $scope.currentUser = res.data.user; 
             $scope.loginData.password = ''; 
             $scope.calcTrade();
             $scope.fetchUserOrders(); 
         }).catch(function(err) {
-            alert("Login Failed: " + err.data.error);
+            alert("Login Failed: " + (err.data.error || "Incorrect email or password."));
         });
     };
 
@@ -138,7 +135,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         if($scope.tradeConfig.purity === "22") { purityMulti = 0.916; }
         if($scope.tradeConfig.purity === "18") { purityMulti = 0.750; }
         
-        let rawGoldPricePerGram24K = ($scope.basePricePerGramINR / 1.18);
+        let rawGoldPricePerGram24K = ($scope.basePricePerGramINR / 1.03); 
         $scope.currentPuritySpotRate = rawGoldPricePerGram24K * purityMulti;
         
         $scope.tradeBaseVal = $scope.tradeConfig.qty * $scope.currentPuritySpotRate;
@@ -150,7 +147,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
         if($scope.tradeConfig.shape === "Jewelry") { premiumPercentDecimal = 0.15; $scope.premiumPercentDisplay = 15; }
 
         $scope.tradePremium = $scope.tradeBaseVal * premiumPercentDecimal;
-        $scope.tradeTax = ($scope.tradeBaseVal + $scope.tradePremium) * 0.18;
+        $scope.tradeTax = ($scope.tradeBaseVal + $scope.tradePremium) * 0.03; 
         $scope.tradeTotalCost = $scope.tradeBaseVal + $scope.tradePremium + $scope.tradeTax;
     };
 
@@ -168,7 +165,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
             userNote: $scope.tradeConfig.userNote 
         };
         
-        // UPGRADED TO RELATIVE PATH
         $http.post('/api/buy', payload).then(function(res) {
             alert("Transaction Successful! Your physical gold is securely allocated. Check your Vault History below.");
             $scope.tradeConfig.qty = $scope.availableWeights[$scope.tradeConfig.shape][0]; 
@@ -194,7 +190,6 @@ app.controller('MainController', function($scope, $http, $timeout) {
     $scope.unlockAdmin = function() {
         if(!$scope.admin.pwd) { return alert("Enter password."); }
         
-        // UPGRADED TO RELATIVE PATH
         $http.post('/api/admin-login', { password: $scope.admin.pwd }).then(function(res) {
             $scope.adminUnlocked = true;
             $scope.admin.pwd = ''; 
@@ -266,7 +261,7 @@ app.controller('MainController', function($scope, $http, $timeout) {
     // LIVE DATA STREAMING & CONVERSION MATH
     // ==========================================
     $scope.apiConnected = false;
-    $scope.basePricePerGramINR = 6200; 
+    $scope.basePricePerGramINR = 14600; 
     
     $scope.rates = { 'USD': 1, 'INR': 83.50, 'EUR': 0.92, 'GBP': 0.78, 'JPY': 150.00, 'AUD': 1.53, 'CAD': 1.35 };
     
@@ -338,10 +333,10 @@ app.controller('MainController', function($scope, $http, $timeout) {
     $scope.masterData = { rawDates: [], dates: [], actual: [], arima: [], lstm: [] };
     
     let startDate = new Date(2012, 0, 1);
-    let endDate = new Date(2026, 1, 27);
+    let endDate = new Date(2026, 2, 22);
     let days = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
     let simPrice = 3000; 
-    let trend = (16190 - 3000) / days; 
+    let trend = (14600 - 3000) / days; 
 
     for(let i = 0; i < days; i++) {
         let d = new Date(startDate);
@@ -383,8 +378,8 @@ app.controller('MainController', function($scope, $http, $timeout) {
         {val:6, name:'July'}, {val:7, name:'August'}, {val:8, name:'September'}, 
         {val:9, name:'October'}, {val:10, name:'November'}, {val:11, name:'December'}
     ];
-    $scope.selYear = 2024; 
-    $scope.selMonth = 0;
+    $scope.selYear = 2026; 
+    $scope.selMonth = 2;
 
     $scope.setTimeframe = function(timeframe) {
         $scope.activeTimeframe = timeframe;
