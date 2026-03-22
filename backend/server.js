@@ -37,7 +37,7 @@ mongoose.connect(MONGODB_URI)
   .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
 // ==========================================
-// MONGODB SCHEMAS (Kept 100% same)
+// MONGODB SCHEMAS 
 // ==========================================
 const LogSchema = new mongoose.Schema({ action: String, details: String, timestamp: { type: Date, default: Date.now } });
 const Log = mongoose.model('Log', LogSchema);
@@ -60,7 +60,7 @@ const OrderSchema = new mongoose.Schema({
 const Order = mongoose.model('Order', OrderSchema);
 
 // ==========================================
-// CSV SYNC ENGINE (Kept 100% same)
+// CSV SYNC ENGINE 
 // ==========================================
 const syncCSV = async () => {
     try {
@@ -78,7 +78,7 @@ const syncCSV = async () => {
 };
 
 // ==========================================
-// 1. LIVE MARKET API (Fixed for 2026)
+// 1. LIVE MARKET API ENDPOINT
 // ==========================================
 app.get('/api/live-market', async (req, res) => {
     try {
@@ -86,24 +86,23 @@ app.get('/api/live-market', async (req, res) => {
         const liveRates = currencyResponse.data.rates;
         liveRates['USD'] = 1; 
 
-        // 🚀 CRITICAL FIX: Added User-Agent so Yahoo doesn't block the request
+        // 🚀 FIXED: Added User-Agent to stop Yahoo from blocking the request
         const goldResponse = await axios.get('https://query1.finance.yahoo.com/v8/finance/chart/GC=F', {
             headers: { 'User-Agent': 'Mozilla/5.0' }
         });
-        
         const pricePerOzUSD = goldResponse.data.chart.result[0].meta.regularMarketPrice;
         const pricePerGramUSD = pricePerOzUSD / 31.1034768;
-        const pricePerGramINR = (pricePerGramUSD * liveRates['INR']) * 1.18;
+        const pricePerGramINR = (pricePerGramUSD * liveRates['INR']) * 1.03; // Base price + 3% GST
 
-        res.json({ rates: liveRates, pricePerGramINR: Math.round(pricePerGramINR), pricePerOzUSD: pricePerOzUSD });
+        res.json({ rates: liveRates, pricePerGramINR: pricePerGramINR, pricePerOzUSD: pricePerOzUSD });
     } catch (error) {
-        console.log("Using 2026 Fallback Pricing...");
+        console.log("Using Fallback Prices...");
         res.json({ rates: { 'INR': 83.5 }, pricePerGramINR: 14600, pricePerOzUSD: 4600 });
     }
 });
 
 // ==========================================
-// 2. TRADING & USER APIs (Kept 100% same)
+// 2. TRADING & USER APIs 
 // ==========================================
 app.post('/api/register', async (req, res) => {
     try {
@@ -171,7 +170,7 @@ app.put('/api/orders/:id/user-note', async (req, res) => {
 });
 
 // ==========================================
-// 3. ADMIN & CRUD APIs (Kept 100% same)
+// 3. ADMIN & CRUD APIs 
 // ==========================================
 app.post('/api/admin-login', (req, res) => {
     if(req.body.password === 'admin123') res.status(200).json({ success: true });
@@ -252,7 +251,7 @@ app.delete('/api/logs/:id', async (req, res) => {
     }
 });
 
-// 🚀 UPGRADED: Dynamic Port binding
+// 🚀 UPGRADED: Dynamic Port binding for Render deployment
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 Aurum Backend running on port ${PORT}`);
