@@ -1343,6 +1343,7 @@
                 let pDates = $scope.masterData.dates.slice(-slice);
                 let pActual = $scope.masterData.actual.slice(-slice);
                 let pArima = $scope.masterData.arima.slice(-slice);
+                let pLstm = $scope.masterData.lstm.slice(-slice); // <--- ADDED THIS
 
                 var myModal = new bootstrap.Modal(document.getElementById('adminChartModal'));
                 myModal.show();
@@ -1357,7 +1358,8 @@
                             labels: pDates,
                             datasets: [
                                 { label: 'Actual Price', data: pActual, borderColor: '#ffffff', borderWidth: 2, tension: 0 },
-                                { label: 'ARIMA Model', data: pArima, borderColor: '#DAA520', borderWidth: 2, borderDash: [5,5], tension: 0 }
+                                { label: 'ARIMA Model', data: pArima, borderColor: '#DAA520', borderWidth: 2, borderDash: [5,5], tension: 0 },
+                                { label: 'LSTM Deep Network', data: pLstm, borderColor: '#198754', borderWidth: 2, borderDash: [5, 5], tension: 0 } // <--- ADDED THIS
                             ]
                         },
                         options: { responsive: true, maintainAspectRatio: false, elements: { point: { radius: 0 } }, plugins: { legend: { labels: { color: '#ffffff' } } }, scales: { x: { ticks: { color: '#ffffff' } }, y: { ticks: { color: '#ffffff' } } } }
