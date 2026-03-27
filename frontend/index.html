@@ -15,10 +15,9 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <style>
-        /* * ==========================================
-         * GLOBAL THEME VARIABLES & CSS CUSTOM PROPERTIES
-         * ==========================================
-         */
+        /*
+        GLOBAL THEME VARIABLES & CSS CUSTOM PROPERTIES
+        */
         :root { 
             --bg-color: #f8f9fa; 
             --text-color: #212529; 
@@ -46,33 +45,28 @@
             transition: background-color 0.4s, color 0.4s; 
         }
         
-        /* * ==========================================
-         * DARK MODE OVERRIDES FOR BOOTSTRAP CLASSES
-         * ==========================================
-         */
+        /*
+        DARK MODE OVERRIDES FOR BOOTSTRAP CLASSES
+        */
         [data-theme="dark"] .text-muted { color: #a0aec0 !important; }
         [data-theme="dark"] .table { --bs-table-color: #e2e8f0; color: #e2e8f0 !important; }
         [data-theme="dark"] .table th, [data-theme="dark"] .table td, [data-theme="dark"] .table span, [data-theme="dark"] .table div { color: #e2e8f0; }
         [data-theme="dark"] .table thead th.text-muted, [data-theme="dark"] .table td.text-muted { color: #a0aec0 !important; }
         [data-theme="dark"] .table-hover tbody tr:hover td, [data-theme="dark"] .table-hover tbody tr:hover span, [data-theme="dark"] .table-hover tbody tr:hover div { color: #ffffff; background-color: rgba(255, 215, 0, 0.05) !important; }
         [data-theme="dark"] .form-floating label { color: #a0aec0 !important; }
-
-        /* Modal Overrides */
         [data-theme="dark"] .modal-content { background-color: #0f172a !important; border: 1px solid var(--border-color); }
 
-        /* * ==========================================
-         * NAVIGATION BAR STYLING
-         * ==========================================
-         */
+        /*
+        NAVIGATION BAR STYLING
+        */
         .navbar { background-color: var(--nav-bg) !important; border-bottom: 1px solid var(--border-color); transition: background-color 0.4s; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .navbar-brand { font-weight: 800; letter-spacing: 2px; color: var(--gold-accent) !important; cursor: pointer; }
         .nav-link { cursor: pointer; color: var(--text-color) !important; font-weight: 600; transition: 0.3s; padding: 0.5rem 1rem; border-radius: 8px; }
         .nav-link:hover, .nav-link.active-tab { color: var(--gold-accent) !important; background-color: rgba(218, 165, 32, 0.1); }
         
-        /* * ==========================================
-         * CUSTOM UI COMPONENTS & GLASSMORPHISM
-         * ==========================================
-         */
+        /*
+        CUSTOM UI COMPONENTS & GLASSMORPHISM
+        */
         .glass-card { background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid var(--border-color); border-radius: 12px; transition: background-color 0.4s, border-color 0.4s; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         .text-gold { color: var(--gold-accent); }
         .border-gold { border-bottom: 2px solid var(--gold-accent); }
@@ -91,10 +85,9 @@
         .btn-outline-custom { border: 2px solid var(--gold-accent); color: var(--text-color); font-weight: 700; background: transparent; transition: all 0.3s; border-radius: 8px; }
         .btn-outline-custom:hover { background-color: var(--gold-accent); color: #000; }
 
-        /* * ==========================================
-         * DATA TABLES & LAYOUT UTILITIES
-         * ==========================================
-         */
+        /*
+        DATA TABLES & LAYOUT UTILITIES
+        */
         .table { color: var(--text-color) !important; border-color: var(--border-color) !important; margin-bottom: 0;}
         .table th, .table td { background-color: transparent !important; vertical-align: middle; padding: 1rem; }
         .table thead th { border-bottom-width: 2px; font-weight: 600; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px;}
@@ -900,11 +893,9 @@
                 }
             };
 
-            /**
-             * ==========================================
-             * USER AUTHENTICATION & TRADING API LOGIC
-             * ==========================================
-             */
+            /*
+            USER AUTHENTICATION & TRADING API LOGIC
+            */
             $scope.authMode = 'login'; 
             $scope.currentUser = null;
             $scope.regData = {}; 
@@ -951,14 +942,13 @@
                 });
             };
 
-            // NEW: Allows User to send follow-up notes from the Vault
             $scope.replyToAdmin = function(order) {
                 let userMessage = prompt("Send a follow-up note to the Admin regarding this order:");
                 if (!userMessage) return; 
                 
                 $http.put('/api/orders/' + order._id + '/user-note', { note: userMessage }).then(function(res) {
                     alert("Message successfully sent to the Vault Admin.");
-                    $scope.fetchUserOrders(); // Refresh table to show appended note
+                    $scope.fetchUserOrders(); 
                 }).catch(function(err) {
                     alert("Failed to send message.");
                 });
@@ -1064,13 +1054,11 @@
                 });
             };
 
-            /**
-             * ==========================================
-             * DATABASE ADMIN (CRUD & ORDER CONTROLS)
-             * ==========================================
-             */
+            /*
+            DATABASE ADMIN (CRUD & ORDER CONTROLS)
+            */
             $scope.adminUnlocked = false;
-            $scope.adminTab = 'ledger'; // Initialize active tab
+            $scope.adminTab = 'ledger'; 
             $scope.admin = { pwd: '' }; 
             $scope.logs = [];
             $scope.orders = [];
@@ -1150,13 +1138,11 @@
                 }
             };
 
-            /**
-             * ==========================================
-             * LIVE DATA STREAMING & CONVERSION MATH
-             * ==========================================
-             */
+            /*
+            LIVE DATA STREAMING & CONVERSION MATH
+            */
             $scope.apiConnected = false;
-            $scope.basePricePerGramINR = 14600; // UPDATED 2026 FALLBACK PRICE
+            $scope.basePricePerGramINR = 14600; 
             
             $scope.rates = { 'USD': 1, 'INR': 83.50, 'EUR': 0.92, 'GBP': 0.78, 'JPY': 150.00, 'AUD': 1.53, 'CAD': 1.35 };
             
@@ -1218,14 +1204,12 @@
                 $scope.calcCurrency();
             });
 
-            /**
-             * ==========================================
-             * CANVAS RENDERING & CHART.JS INITIALIZATION
-             * ==========================================
-             */
+            /*
+            CANVAS RENDERING & CHART.JS INITIALIZATION
+            */
             let arimaChartInstance = null; 
             let lstmChartInstance = null;
-            $scope.adminPreviewChartInstance = null; // Holds modal chart
+            $scope.adminPreviewChartInstance = null; 
 
             $scope.masterData = { rawDates: [], dates: [], actual: [], arima: [], lstm: [] };
             
@@ -1282,7 +1266,6 @@
             $scope.selYear = 2026; 
             $scope.selMonth = 2;
 
-            // TRACKING UPDATE: Pushes user's chart view directly to DB
             $scope.setTimeframe = function(timeframe) {
                 $scope.activeTimeframe = timeframe;
                 let slice = 0;
@@ -1300,7 +1283,6 @@
                     $scope.masterData.lstm.slice(-slice)
                 );
 
-                // Silently log action to Admin console
                 let identifier = $scope.currentUser ? $scope.currentUser.name : "Guest";
                 $http.post('/api/log', { action: 'Chart Viewed', details: `User: ${identifier} | Timeframe: ${timeframe}` });
             };
@@ -1326,14 +1308,12 @@
                 }
                 $scope.updateCharts(fDates, fActual, fArima, fLstm);
 
-                // Silently log custom lookup
                 let identifier = $scope.currentUser ? $scope.currentUser.name : "Guest";
                 $http.post('/api/log', { action: 'Chart Viewed', details: `User: ${identifier} | Custom: ${monthName} ${$scope.selYear}` });
             };
 
-            // NEW: Reproduces the user's graph inside the Admin Modal
             $scope.previewLogChart = function(log) {
-                let slice = 365; // Default 1Y
+                let slice = 365; 
                 if (log.details.includes('1M')) slice = 30;
                 else if (log.details.includes('6M')) slice = 180;
                 else if (log.details.includes('1Y')) slice = 365;
@@ -1343,7 +1323,7 @@
                 let pDates = $scope.masterData.dates.slice(-slice);
                 let pActual = $scope.masterData.actual.slice(-slice);
                 let pArima = $scope.masterData.arima.slice(-slice);
-                let pLstm = $scope.masterData.lstm.slice(-slice); // <--- ADDED THIS
+                let pLstm = $scope.masterData.lstm.slice(-slice); 
 
                 var myModal = new bootstrap.Modal(document.getElementById('adminChartModal'));
                 myModal.show();
@@ -1359,12 +1339,12 @@
                             datasets: [
                                 { label: 'Actual Price', data: pActual, borderColor: '#ffffff', borderWidth: 2, tension: 0 },
                                 { label: 'ARIMA Model', data: pArima, borderColor: '#DAA520', borderWidth: 2, borderDash: [5,5], tension: 0 },
-                                { label: 'LSTM Deep Network', data: pLstm, borderColor: '#198754', borderWidth: 2, borderDash: [5, 5], tension: 0 } // <--- ADDED THIS
+                                { label: 'LSTM Deep Network', data: pLstm, borderColor: '#198754', borderWidth: 2, borderDash: [5, 5], tension: 0 } 
                             ]
                         },
                         options: { responsive: true, maintainAspectRatio: false, elements: { point: { radius: 0 } }, plugins: { legend: { labels: { color: '#ffffff' } } }, scales: { x: { ticks: { color: '#ffffff' } }, y: { ticks: { color: '#ffffff' } } } }
                     });
-                }, 300); // 300ms delay ensures modal animation finishes before drawing canvas
+                }, 300); 
             };
 
             $scope.updateCharts = function(dates, actual, arima, lstm) {
