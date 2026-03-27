@@ -9,14 +9,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Host the static files from the frontend folder
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// 🚀 CLOUD DATABASE CONNECTION
+/*
+CLOUD DATABASE CONNECTION
+*/
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/aurumDB';
 
 mongoose.connect(MONGODB_URI)
@@ -36,9 +37,9 @@ mongoose.connect(MONGODB_URI)
   })
   .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
-// ==========================================
-// MONGODB SCHEMAS 
-// ==========================================
+/*
+MONGODB SCHEMAS 
+*/
 const LogSchema = new mongoose.Schema({ action: String, details: String, timestamp: { type: Date, default: Date.now } });
 const Log = mongoose.model('Log', LogSchema);
 
@@ -59,9 +60,9 @@ const OrderSchema = new mongoose.Schema({
 });
 const Order = mongoose.model('Order', OrderSchema);
 
-// ==========================================
-// CSV SYNC ENGINE 
-// ==========================================
+/*
+CSV SYNC ENGINE 
+*/
 const syncCSV = async () => {
     try {
         const logs = await Log.find().sort({ timestamp: -1 });
@@ -77,22 +78,21 @@ const syncCSV = async () => {
     }
 };
 
-// ==========================================
-// 1. LIVE MARKET API ENDPOINT
-// ==========================================
+/*
+LIVE MARKET API ENDPOINT
+*/
 app.get('/api/live-market', async (req, res) => {
     try {
         const currencyResponse = await axios.get('https://api.frankfurter.dev/v1/latest?base=USD');
         const liveRates = currencyResponse.data.rates;
         liveRates['USD'] = 1; 
 
-        // 🚀 FIXED: Added User-Agent to stop Yahoo from blocking the request
         const goldResponse = await axios.get('https://query1.finance.yahoo.com/v8/finance/chart/GC=F', {
             headers: { 'User-Agent': 'Mozilla/5.0' }
         });
         const pricePerOzUSD = goldResponse.data.chart.result[0].meta.regularMarketPrice;
         const pricePerGramUSD = pricePerOzUSD / 31.1034768;
-        const pricePerGramINR = (pricePerGramUSD * liveRates['INR']) * 1.03; // Base price + 3% GST
+        const pricePerGramINR = (pricePerGramUSD * liveRates['INR']) * 1.03; 
 
         res.json({ rates: liveRates, pricePerGramINR: pricePerGramINR, pricePerOzUSD: pricePerOzUSD });
     } catch (error) {
@@ -101,9 +101,9 @@ app.get('/api/live-market', async (req, res) => {
     }
 });
 
-// ==========================================
-// 2. TRADING & USER APIs 
-// ==========================================
+/*
+TRADING & USER APIS 
+*/
 app.post('/api/register', async (req, res) => {
     try {
         if (/[0-9]/.test(req.body.name)) {
@@ -169,9 +169,9 @@ app.put('/api/orders/:id/user-note', async (req, res) => {
     }
 });
 
-// ==========================================
-// 3. ADMIN & CRUD APIs 
-// ==========================================
+/*
+ADMIN & CRUD APIS 
+*/
 app.post('/api/admin-login', (req, res) => {
     if(req.body.password === 'admin123') res.status(200).json({ success: true });
     else res.status(401).json({ success: false });
@@ -183,6 +183,15 @@ app.get('/api/users', async (req, res) => {
         res.status(200).json(users);
     } catch (error) {
         res.status(500).json({ error: "Failed to fetch users" });
+    }
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+    try {
+        await User.findByIdAndDelete(req.params.id);
+        res.status(200).json({ message: "User deleted" });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to delete user" });
     }
 });
 
@@ -251,7 +260,9 @@ app.delete('/api/logs/:id', async (req, res) => {
     }
 });
 
-// 🚀 UPGRADED: Dynamic Port binding for Render deployment
+/*
+SERVER INITIALIZATION
+*/
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 Aurum Backend running on port ${PORT}`);
