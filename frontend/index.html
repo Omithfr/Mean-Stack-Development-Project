@@ -654,6 +654,40 @@
                         <h4 class="text-primary mb-0 fw-bold"><i class="bi bi-people me-2"></i> Registered Investors Database</h4>
                         <span class="badge bg-primary px-4 py-2 fs-6 shadow-sm"><i class="bi bi-person-lines-fill me-1"></i> Total Users: {{ registeredUsers.length }}</span>
                     </div>
+                    
+                    <div class="p-4 border-bottom border-primary border-opacity-25">
+                        <div class="row g-3 rounded p-3 bg-dark bg-opacity-25 align-items-center">
+                            <div class="col-12 mb-2"><h6 class="text-muted fw-bold text-uppercase"><i class="bi bi-person-plus-fill me-2"></i> Register New Investor</h6></div>
+                            <div class="col-md-3">
+                                <div class="form-floating">
+                                    <input type="text" class="form-control custom-input form-control-sm" id="adminRegName" placeholder="Name" ng-model="newAdminUser.name">
+                                    <label for="adminRegName">Full Name</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-floating">
+                                    <input type="email" class="form-control custom-input form-control-sm" id="adminRegEmail" placeholder="Email" ng-model="newAdminUser.email">
+                                    <label for="adminRegEmail">Email Address</label>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-floating">
+                                    <input type="tel" class="form-control custom-input form-control-sm" id="adminRegPhone" placeholder="Phone" ng-model="newAdminUser.number" maxlength="10">
+                                    <label for="adminRegPhone">Phone (10-digit)</label>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-floating">
+                                    <input type="password" class="form-control custom-input form-control-sm" id="adminRegPass" placeholder="Password" ng-model="newAdminUser.password">
+                                    <label for="adminRegPass">Password</label>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-primary w-100 h-100 fw-bold shadow" ng-click="adminCreateUser()"><i class="bi bi-person-plus me-1"></i> ADD</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="table-responsive p-3">
                         <table class="table table-hover align-middle">
                             <thead class="text-muted">
@@ -1074,6 +1108,7 @@
             $scope.orders = [];
             $scope.registeredUsers = []; 
             $scope.selectedOrder = {}; 
+            $scope.newAdminUser = {};
 
             $scope.unlockAdmin = function() {
                 if(!$scope.admin.pwd) { return alert("Enter password."); }
@@ -1113,7 +1148,30 @@
                 });
             };
 
-            // NEW: Delete User Logic
+            $scope.adminCreateUser = function() {
+                if(!$scope.newAdminUser.name || !$scope.newAdminUser.email || !$scope.newAdminUser.password || !$scope.newAdminUser.number) {
+                    return alert("Please fill out all fields to create a user.");
+                }
+                if (/[0-9]/.test($scope.newAdminUser.name)) {
+                    return alert("Invalid Entry: Full Name cannot include numbers.");
+                }
+                let emailPrefix = $scope.newAdminUser.email.split('@')[0];
+                if (emailPrefix && !/[a-zA-Z]/.test(emailPrefix)) {
+                    return alert("Invalid Entry: Email address must contain letters.");
+                }
+                if (!/^[0-9]{10}$/.test($scope.newAdminUser.number)) {
+                    return alert("Invalid Entry: Please enter a valid 10-digit Indian mobile number.");
+                }
+
+                $http.post('/api/register', $scope.newAdminUser).then(function(res) {
+                    alert("Investor successfully created!");
+                    $scope.newAdminUser = {}; 
+                    $scope.fetchAdminData(); 
+                }).catch(function(err) {
+                    alert(err.data.error || "Failed to create investor.");
+                });
+            };
+
             $scope.deleteUser = function(id) {
                 if(confirm("CRITICAL WARNING: Are you sure you want to permanently delete this investor account?")) {
                     $http.delete('/api/users/' + id).then(function(res) {
